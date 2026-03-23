@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 22 LTS via `fnm` (`fnm install 22 && fnm use 22`)
+- Node.js 24 LTS via `fnm` (`fnm install 24 && fnm use 24`)
 - pnpm 9+ (`corepack enable && corepack prepare pnpm@latest --activate`)
 - A `.node-version` file is included in the repo root — `fnm` auto-switches when you `cd` into the project (requires `eval "$(fnm env --use-on-cd)"` in your shell config).
 - Docker + Docker Compose (for local MongoDB replica set)
