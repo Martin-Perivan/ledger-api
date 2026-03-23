@@ -39,6 +39,10 @@ import { TransferController } from "./controllers/transfer.controller.js";
 function createApp(db: Db, client: MongoClient): Express {
   const app = express();
 
+  // Railway / PaaS reverse proxy – trust the immediate load balancer
+  // so req.ip reflects the real client address (needed by rate limiters).
+  app.set("trust proxy", 1);
+
   // --- Gateway middleware ---
   app.use(helmet());
   app.use(
