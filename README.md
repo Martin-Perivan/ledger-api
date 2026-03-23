@@ -140,12 +140,13 @@ src/
 
 | Document                                              | Description                       |
 | ----------------------------------------------------- | --------------------------------- |
-| [`docs/architecture.md`](docs/architecture.md)        | System design and data flow       |
+| [`docs/architecture.md`](docs/architecture.md)        | System design and data flow        |
 | [`docs/api-reference.md`](docs/api-reference.md)      | Full endpoint contract            |
 | [`docs/audit-report.md`](docs/audit-report.md)        | Security measures and OWASP map   |
 | [`docs/development.md`](docs/development.md)          | Local setup and scripts           |
 | [`docs/roadmap.md`](docs/roadmap.md)                  | Planned improvements              |
-| [`docs/decisions/`](docs/decisions/)                   | Architecture Decision Records     |
+| [`docs/decisions/`](docs/decisions/)                  | Architecture Decision Records     |
+| [`docs/walkthrough.md`](docs/walkthrough.md)          | Hands-on testing guide            |
 
 ## Roadmap
 
