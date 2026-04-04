@@ -99,6 +99,9 @@ ledger-api/
 │       ├── Domain.md
 │       ├── FraudDetection.md
 │       └── Workflows.md
+├── .trae/
+│   └── skills/skill-md/
+│       └── SKILL.md
 ├── docs/
 │   ├── decisions/
 │   │   ├── 001-double-entry-ledger.md
@@ -111,7 +114,8 @@ ledger-api/
 │   ├── audit-report.md
 │   ├── development.md
 │   ├── roadmap.md
-│   └── status.md
+│   ├── status.md
+│   └── walkthrough.md
 ├── src/
 │   ├── config/
 │   │   ├── database.ts          — MongoDB connection + index creation
@@ -182,6 +186,7 @@ ledger-api/
 │   │   ├── hash.ts                     — Password hashing (bcrypt)
 │   │   └── token.ts                    — JWT sign/verify helpers
 │   ├── app.ts                          — Express app factory
+│   ├── seed.ts                         — Demo seed entry point
 │   └── server.ts                       — Entry point
 ├── tests/
 │   ├── unit/
@@ -191,16 +196,22 @@ ledger-api/
 │   └── helpers/
 │       ├── test-db.ts                  — In-memory MongoDB for tests
 │       └── setup-env.ts               — Test environment variables
+├── .dockerignore
 ├── .env.example
 ├── .gitignore
+├── .node-version
+├── .npmignore
 ├── Dockerfile
 ├── docker-compose.yml
+├── eslint.config.js
 ├── package.json
 ├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
 ├── tsconfig.json
 ├── tsconfig.test.json
 ├── jest.config.js
 ├── postman_collection.json
+├── skills-lock.json
 ├── AGENTS.md
 └── README.md
 ```

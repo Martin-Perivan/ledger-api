@@ -139,19 +139,22 @@ If the AI service is unavailable, hardcoded fallback rules ensure the system rem
 ## Project Structure
 
 ```
-docs/             — Architecture, API contract, setup, status, and ADRs
-tests/            — Unit and integration-oriented service tests
-src/seed.ts       — Demo seed entrypoint used by `pnpm run seed`
+docs/             — Architecture, API contract, setup, walkthrough, status, and ADRs
+tests/            — Service-layer unit tests and test helpers
 src/
-├── config/         — Database, environment, Swagger
-├── domain/         — Entities, enums, value objects (pure TypeScript)
+├── config/         — Database, environment, and Swagger setup
+├── controllers/    — HTTP request and response orchestration
+├── domain/         — Entities, enums, value objects, and constants
+├── middleware/     — Auth, validation, idempotency, rate limit, and headers
 ├── repositories/   — MongoDB data access layer
-├── services/       — Business logic (Result pattern)
-├── controllers/    — HTTP request/response handling
-├── middleware/     — Auth, validation, idempotency, rate limit
-├── schemas/        — Zod validation schemas
 ├── routes/         — Express route definitions
-└── utils/          — Result type, logger, hash, token helpers
+├── schemas/        — Zod validation schemas
+├── services/       — Business logic using the Result pattern
+├── types/          — Express type augmentation
+├── utils/          — Result type, logger, hash, response, and token helpers
+├── app.ts          — Express app factory
+├── seed.ts         — Demo seed entrypoint used by `pnpm run seed`
+└── server.ts       — Runtime entrypoint
 ```
 
 ## Documentation
