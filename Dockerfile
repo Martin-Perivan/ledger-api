@@ -1,4 +1,4 @@
-FROM cgr.dev/chainguard/node:24-dev AS base
+FROM cgr.dev/chainguard/node:latest-dev AS base
 USER root
 RUN npm install -g pnpm@10.29.3
 WORKDIR /app
@@ -16,7 +16,7 @@ COPY --chown=node:node tsconfig.json ./
 COPY --chown=node:node src/ src/
 RUN pnpm run build
 
-FROM cgr.dev/chainguard/node:24 AS runtime
+FROM cgr.dev/chainguard/node:latest AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
