@@ -28,6 +28,4 @@ yarn-error.log*
 .vscode/
 
 # Local AI assistant settings
-.claude/settings.local.json
-.claude/projects/
-.claude/skills/
+.claude/
