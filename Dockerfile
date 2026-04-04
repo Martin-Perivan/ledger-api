@@ -1,24 +1,27 @@
-FROM node:22-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+FROM cgr.dev/chainguard/node:24-dev AS base
+USER root
+RUN npm install -g pnpm@10.29.3
 WORKDIR /app
+RUN chown -R node:node /app
+USER node
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml ./
+COPY --chown=node:node package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
 FROM base AS build
-COPY package.json pnpm-lock.yaml ./
+COPY --chown=node:node package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
-COPY tsconfig.json ./
-COPY src/ src/
+COPY --chown=node:node tsconfig.json ./
+COPY --chown=node:node src/ src/
 RUN pnpm run build
 
-FROM node:22-alpine AS runtime
+FROM cgr.dev/chainguard/node:24 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY package.json ./
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --chown=node:node package.json ./
 EXPOSE 3000
 USER node
-CMD ["node", "dist/server.js"]
+CMD ["dist/server.js"]

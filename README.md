@@ -38,7 +38,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full system design an
 
 | Layer           | Technology                                  |
 | --------------- | ------------------------------------------- |
-| Runtime         | Node.js 22 LTS                              |
+| Runtime         | Node.js 24 LTS                              |
 | Language        | TypeScript 5.x (strict mode)                |
 | Framework       | Express.js                                  |
 | Database        | MongoDB Atlas (native driver, transactions) |
@@ -54,7 +54,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full system design an
 ## Quick Start
 
 ```bash
-# Prerequisites: Node.js 22+, pnpm, Docker
+# Prerequisites: Node.js 24+, pnpm, Docker
 
 git clone https://github.com/Martin-Perivan/ledger-api.git
 cd ledger-api
@@ -64,11 +64,26 @@ cp .env.example .env    # Edit with your values
 # Start local MongoDB replica set
 docker compose up -d
 
+# Seed demo users and accounts
+pnpm run seed
+
 # Start development server
 pnpm run dev
 ```
 
+The repository includes a `.node-version` file for Node.js 24 tooling alignment.
 See [`docs/development.md`](docs/development.md) for the full setup guide.
+
+## Common Commands
+
+| Command | Description |
+| ------- | ----------- |
+| `pnpm run dev` | Start the development server with `tsx watch` |
+| `pnpm run lint` | Run ESLint across `src/` and `tests/` |
+| `pnpm run test` | Run the Jest test suite |
+| `pnpm run build` | Compile TypeScript to `dist/` |
+| `pnpm run seed` | Seed demo users and wallet accounts |
+| `pnpm run swagger` | Generate the Swagger/OpenAPI output |
 
 ## API Endpoints
 
@@ -124,13 +139,16 @@ If the AI service is unavailable, hardcoded fallback rules ensure the system rem
 ## Project Structure
 
 ```
+docs/             — Architecture, API contract, setup, status, and ADRs
+tests/            — Unit and integration-oriented service tests
+src/seed.ts       — Demo seed entrypoint used by `pnpm run seed`
 src/
 ├── config/         — Database, environment, Swagger
 ├── domain/         — Entities, enums, value objects (pure TypeScript)
 ├── repositories/   — MongoDB data access layer
 ├── services/       — Business logic (Result pattern)
 ├── controllers/    — HTTP request/response handling
-├── middleware/      — Auth, validation, idempotency, rate limit
+├── middleware/     — Auth, validation, idempotency, rate limit
 ├── schemas/        — Zod validation schemas
 ├── routes/         — Express route definitions
 └── utils/          — Result type, logger, hash, token helpers
@@ -147,6 +165,17 @@ src/
 | [`docs/roadmap.md`](docs/roadmap.md)                  | Planned improvements              |
 | [`docs/decisions/`](docs/decisions/)                  | Architecture Decision Records     |
 | [`docs/walkthrough.md`](docs/walkthrough.md)          | Hands-on testing guide            |
+
+## Repository Guidance
+
+| Path | Description |
+| ---- | ----------- |
+| [`AGENTS.md`](AGENTS.md) | Agent execution contract and repository loading order |
+| [`.agents/rules/ledger-api/`](.agents/rules/ledger-api/) | Detailed project rules for naming, errors, security, database, and responses |
+| [`.agents/skills/backend-engineer/`](.agents/skills/backend-engineer/) | Canonical backend skill materials for architecture, domain logic, and workflows |
+| [`.trae/skills/skill-md/SKILL.md`](.trae/skills/skill-md/SKILL.md) | Trae bridge that routes to the canonical backend skill |
+
+`README.md` stays user-facing, while `AGENTS.md` and `.agents/` define the repository guidance used by coding agents and IDE integrations.
 
 ## Roadmap
 
