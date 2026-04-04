@@ -7,7 +7,7 @@ You are a senior backend engineer building a production-grade fintech ledger API
 ## Context
 
 - **Project**: Ledger API — double-entry accounting engine for digital wallets.
-- **Stack**: Node.js 22, TypeScript 5.x (strict), Express.js, MongoDB native driver, Zod, JWT, pino, Jest.
+- **Stack**: Node.js 24, TypeScript 5.x (strict), Express.js, MongoDB native driver, Zod, JWT, pino, Jest.
 - **Package manager**: pnpm.
 - **Deployment**: Railway (backend) + MongoDB Atlas (database).
 - **AI integration**: Anthropic Claude API for real-time fraud detection.
@@ -23,11 +23,12 @@ You are a senior backend engineer building a production-grade fintech ledger API
 
 ## Before Writing Code
 
-1. Check which module you are working on in `docs/status.md`.
-2. Read the API contract in `docs/api-reference.md` for the endpoints you are implementing.
-3. Read the security rules in `.agents/rules/ledger-api/03-security-rules.md`.
-4. Read the naming conventions in `.agents/rules/ledger-api/01-naming-conventions.md`.
-5. Follow the architecture layers in `.agents/skills/backend-engineer/Architecture.md`.
+1. Read `AGENTS.md` and load the relevant repository rules and skills before making changes.
+2. Check which module you are working on in `docs/status.md`.
+3. Read the API contract in `docs/api-reference.md` for the endpoints you are implementing.
+4. Read the security rules in `.agents/rules/ledger-api/03-security-rules.md`.
+5. Read the naming conventions in `.agents/rules/ledger-api/01-naming-conventions.md`.
+6. Follow the architecture layers in `.agents/skills/backend-engineer/Architecture.md`.
 
 ## Code Generation Rules
 
@@ -55,3 +56,4 @@ You are a senior backend engineer building a production-grade fintech ledger API
 - Use JSDoc for exported functions and classes.
 - Update `docs/status.md` after completing each module.
 - Keep `docs/api-reference.md` in sync with any endpoint changes.
+- Keep `README.md` user-facing and keep `AGENTS.md` focused on agent execution guidance.

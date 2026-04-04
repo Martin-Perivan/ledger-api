@@ -24,7 +24,7 @@ interface SuccessResponse<T> {
 
 ```typescript
 interface ErrorResponse {
-  success: true; // NOTE: this is wrong, see below
+  success: false;
   error: {
     code: string;
     message: string;

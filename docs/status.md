@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated**: 2026-03-22
+**Last updated**: 2026-04-03
 
 ## Module Status
 
@@ -20,7 +20,7 @@
 | Tests                   | ✅ Complete  | 22 tests: deposit, transfer, risk      |
 | Swagger                 | ✅ Complete  | OpenAPI 3.0.3 at /api-docs             |
 | Postman Collection      | ✅ Complete  | All endpoints with auto-variables      |
-| Dockerfile              | ✅ Complete  | Multi-stage, Node 22 Alpine            |
+| Dockerfile              | ✅ Complete  | Multi-stage, Node 24 Alpine            |
 
 ## Legend
 
