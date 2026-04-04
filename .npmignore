@@ -1,0 +1,43 @@
+# Dependencies and local installs
+node_modules/
+
+# Source maps and debug artifacts
+*.map
+dist/**/*.map
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local tool and editor state
+.DS_Store
+.idea/
+.vscode/
+.claude/
+.agents/
+
+# Source and tests (publish compiled output only)
+src/
+tests/
+
+# Internal and development-only files
+docs/
+AGENTS.md
+Dockerfile
+docker-compose.yml
+jest.config.js
+postman_collection.json
+tsconfig.json
+tsconfig.test.json
+skills-lock.json
