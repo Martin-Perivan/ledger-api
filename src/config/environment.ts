@@ -6,6 +6,13 @@
 
 import { z } from "zod";
 
+function parseCorsOrigins(rawValue: string): string[] {
+  return rawValue
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
 const environmentSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
@@ -25,7 +32,15 @@ const environmentSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(100),
 
-  CORS_ORIGIN: z.string().min(1).default("http://localhost:3000"),
+  TRUST_PROXY: z.coerce.number().int().min(0).default(1),
+  MAX_ACCOUNTS_PER_USER: z.coerce.number().int().positive().default(10),
+
+  CORS_ORIGIN: z
+    .string()
+    .min(1)
+    .default("http://localhost:3000")
+    .transform((value) => parseCorsOrigins(value))
+    .pipe(z.array(z.string().url()).min(1)),
 });
 
 type Environment = z.infer<typeof environmentSchema>;
@@ -47,4 +62,5 @@ function loadEnvironment(): Environment {
 const env: Environment = loadEnvironment();
 
 export { env };
+export { parseCorsOrigins };
 export type { Environment };

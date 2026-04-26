@@ -20,7 +20,7 @@ export default {
     ],
   },
   extensionsToTreatAsEsm: [".ts"],
-  setupFiles: ["<rootDir>/tests/helpers/setup-env.ts"],
+  setupFiles: ["<rootDir>/tests/helpers/setup-env.cjs"],
   collectCoverageFrom: ["src/**/*.ts", "!src/server.ts", "!src/seed.ts"],
   coverageDirectory: "coverage",
 };

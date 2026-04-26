@@ -4,7 +4,7 @@
  * @module routes/account
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 
 import { type AccountController } from "../controllers/account.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
@@ -15,12 +15,16 @@ import {
   accountHistoryQuerySchema,
 } from "../schemas/account.schema.js";
 
-function createAccountRoutes(accountController: AccountController): Router {
+function createAccountRoutes(
+  accountController: AccountController,
+  accountCreationLimiter: RequestHandler
+): Router {
   const router = Router();
 
   router.post(
     "/",
     authMiddleware,
+    accountCreationLimiter,
     validate({ body: createAccountSchema }),
     accountController.create.bind(accountController)
   );

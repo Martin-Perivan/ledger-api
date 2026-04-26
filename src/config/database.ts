@@ -69,7 +69,7 @@ async function createIndexes(db: Db): Promise<void> {
 
     db
       .collection("idempotencyKeys")
-      .createIndex({ key: 1 }, { unique: true, background: true }),
+      .createIndex({ key: 1, userId: 1 }, { unique: true, background: true }),
     db
       .collection("idempotencyKeys")
       .createIndex(

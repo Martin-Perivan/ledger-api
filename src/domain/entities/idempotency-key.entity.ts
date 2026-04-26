@@ -9,6 +9,7 @@ import { ObjectId } from "mongodb";
 interface IdempotencyKeyDocument {
   _id: ObjectId;
   key: string;
+  userId: ObjectId;
   method: string;
   path: string;
   statusCode: number;

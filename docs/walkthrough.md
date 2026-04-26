@@ -3,9 +3,45 @@
 A hands-on guide to test every endpoint and understand how the entire system works. Run each step in order using `curl` from your terminal.
 
 **Prerequisites:**
-- Server running Railway: `https://ledger-api-production-0e70.up.railway.app/api/v1`
+- A running Railway deployment or a local server
+- `curl` for HTTP requests
+- `jq` for readable JSON output
+- `uuidgen` for idempotency keys
+
+**Set your target URLs first:**
+```bash
+ROOT_URL="https://<railway-domain>"
+BASE_URL="$ROOT_URL/api/v1"
+HEALTH_URL="$ROOT_URL/health"
+SWAGGER_URL="$ROOT_URL/api-docs"
+```
+
+Export these once and reuse them throughout the guide.
+
+If you are testing locally, replace `https://<railway-domain>` with your local origin, for example `http://localhost:3000`.
 
 **Convention:** All amounts are in **integer cents** (e.g., `50000` = $500.00 MXN).
+
+---
+
+## Step 0: Verify Health
+
+**What happens internally:**
+- Express serves a lightweight operational probe at `GET /health`
+- Railway and Docker can use this endpoint for health checks without touching business routes
+
+```bash
+curl -s "$HEALTH_URL" | jq
+```
+
+**Expected response (200):**
+```json
+{
+  "status": "ok"
+}
+```
+
+> **Takeaway:** Validate platform health first. If this probe fails, the issue is deployment or runtime wiring, not business logic.
 
 ---
 
@@ -19,7 +55,7 @@ A hands-on guide to test every endpoint and understand how the entire system wor
 - An audit log entry is created with action `REGISTER`
 
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/register \
+curl -s -X POST "$BASE_URL/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "martin@certero.com",
@@ -42,7 +78,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/re
 
 **Try it wrong — duplicate email (409):**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/register \
+curl -s -X POST "$BASE_URL/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "martin@certero.com",
@@ -53,7 +89,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/re
 
 **Try it wrong — weak password (400):**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/register \
+curl -s -X POST "$BASE_URL/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "weak@certero.com",
@@ -75,7 +111,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/re
 - An audit log entry is created with action `LOGIN`
 
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/login \
+curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "martin@certero.com",
@@ -103,7 +139,7 @@ TOKEN="eyJhbGciOiJIUzI1NiIs..."
 
 **Try it wrong — bad password (401):**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/login \
+curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "martin@certero.com",
@@ -125,7 +161,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/lo
 
 **Account A (your main wallet):**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/accounts \
+curl -s -X POST "$BASE_URL/accounts" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -140,7 +176,7 @@ ACCOUNT_A="<paste accountId from response>"
 
 **Account B (secondary wallet):**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/accounts \
+curl -s -X POST "$BASE_URL/accounts" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -155,7 +191,7 @@ ACCOUNT_B="<paste accountId from response>"
 
 **Try it without token (401):**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/accounts \
+curl -s -X POST "$BASE_URL/accounts" \
   -H "Content-Type: application/json" \
   -d '{"currency": "MXN"}' | jq
 ```
@@ -171,7 +207,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/account
 - Only YOUR accounts are returned (Business Rule #10 — ownership check)
 
 ```bash
-curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts \
+curl -s -X GET "$BASE_URL/accounts" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -196,7 +232,7 @@ curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts
 
 **Deposit $500.00 MXN into Account A:**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposits \
+curl -s -X POST "$BASE_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')" \
@@ -224,7 +260,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposit
 
 **Deposit $200.00 MXN into Account B:**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposits \
+curl -s -X POST "$BASE_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')" \
@@ -238,7 +274,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposit
 
 **Verify balances:**
 ```bash
-curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts \
+curl -s -X GET "$BASE_URL/accounts" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -260,7 +296,7 @@ curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts
 FIXED_KEY="11111111-1111-1111-1111-111111111111"
 
 # First time — deposits $100.00
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposits \
+curl -s -X POST "$BASE_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $FIXED_KEY" \
@@ -272,7 +308,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposit
   }' | jq
 
 # Second time — SAME key, returns cached response
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposits \
+curl -s -X POST "$BASE_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $FIXED_KEY" \
@@ -286,7 +322,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/deposit
 
 **Verify balance — should be 60000 (not 70000):**
 ```bash
-curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts/$ACCOUNT_A \
+curl -s -X GET "$BASE_URL/accounts/$ACCOUNT_A" \
   -H "Authorization: Bearer $TOKEN" | jq '.data.balance'
 ```
 
@@ -324,7 +360,7 @@ curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts
 
 **Transfer $100.00 from Account A to Account B:**
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfers \
+curl -s -X POST "$BASE_URL/transfers" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')" \
@@ -357,7 +393,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfe
 
 **Verify balances:**
 ```bash
-curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts \
+curl -s -X GET "$BASE_URL/accounts" \
   -H "Authorization: Bearer $TOKEN" | jq '.data[] | {accountId: .accountId, balance: .balance}'
 ```
 
@@ -371,7 +407,7 @@ curl -s -X GET https://ledger-api-production-0e70.up.railway.app/api/v1/accounts
 
 ### Self-transfer (Rule #4):
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfers \
+curl -s -X POST "$BASE_URL/transfers" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')" \
@@ -387,7 +423,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfe
 
 ### Insufficient funds (Rule #3):
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfers \
+curl -s -X POST "$BASE_URL/transfers" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')" \
@@ -403,7 +439,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfe
 
 ### Below minimum amount (Rule #6):
 ```bash
-curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfers \
+curl -s -X POST "$BASE_URL/transfers" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')" \
@@ -430,7 +466,7 @@ curl -s -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/transfe
 
 **Account A history (all movements):**
 ```bash
-curl -s -X GET "https://ledger-api-production-0e70.up.railway.app/api/v1/accounts/$ACCOUNT_A/history?page=1&limit=10" \
+curl -s -X GET "$BASE_URL/accounts/$ACCOUNT_A/history?page=1&limit=10" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -441,7 +477,7 @@ curl -s -X GET "https://ledger-api-production-0e70.up.railway.app/api/v1/account
 
 **Account B history:**
 ```bash
-curl -s -X GET "https://ledger-api-production-0e70.up.railway.app/api/v1/accounts/$ACCOUNT_B/history?page=1&limit=10" \
+curl -s -X GET "$BASE_URL/accounts/$ACCOUNT_B/history?page=1&limit=10" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -457,7 +493,7 @@ curl -s -X GET "https://ledger-api-production-0e70.up.railway.app/api/v1/account
 
 **Verify the API gateway is doing its job:**
 ```bash
-curl -s -D - -o /dev/null https://ledger-api-production-0e70.up.railway.app/api/v1/accounts \
+curl -s -D - -o /dev/null "$BASE_URL/accounts" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -467,7 +503,7 @@ curl -s -D - -o /dev/null https://ledger-api-production-0e70.up.railway.app/api/
 - `Cache-Control: no-store` — financial data is never cached
 - `X-Content-Type-Options: nosniff` — Helmet security header
 - `Strict-Transport-Security: ...` — HSTS (Helmet)
-- `X-Frame-Options: SAMEORIGIN` — clickjacking protection (Helmet)
+- `X-Frame-Options` — frame embedding is restricted by Helmet
 
 > **Takeaway:** Helmet adds ~10 security headers automatically. `Cache-Control: no-store` ensures financial data is never cached by browsers or proxies.
 
@@ -479,7 +515,7 @@ curl -s -D - -o /dev/null https://ledger-api-production-0e70.up.railway.app/api/
 ```bash
 for i in {1..15}; do
   echo "Request $i:"
-  curl -s -o /dev/null -w "%{http_code}" -X POST https://ledger-api-production-0e70.up.railway.app/api/v1/auth/login \
+  curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/auth/login" \
     -H "Content-Type: application/json" \
     -d '{"email":"test@test.com","password":"wrong"}'
   echo ""
@@ -496,15 +532,17 @@ done
 
 Open in your browser:
 
-```
-https://ledger-api-production-0e70.up.railway.app/api-docs
+```bash
+echo "$SWAGGER_URL"
 ```
 
 You will see the full OpenAPI 3.0 documentation with:
-- All 8 endpoints
+- All 8 business endpoints
 - Request/response schemas
 - The ability to "Try it out" directly from the browser
 - Security scheme (Bearer JWT) configuration
+
+`/health` remains the operational endpoint and is documented in the API reference instead of Swagger.
 
 > **Takeaway:** Swagger lets the Certero partners explore and test the API without reading code or using Postman.
 
@@ -529,4 +567,4 @@ Every operation that moves money uses:
 3. **Idempotency** (exactly-once execution)
 4. **Audit trail** (immutable, append-only)
 
-This is how real fintechs work internally.
+This is how real fintech platforms work internally.

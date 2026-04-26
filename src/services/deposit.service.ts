@@ -1,6 +1,7 @@
 /**
  * Deposit service handling fund deposits into accounts.
  * Creates a DEPOSIT transaction with double-entry ledger entries inside a MongoDB transaction.
+ * Uses findOneAndUpdate to get authoritative post-update balance for ledger entries.
  * @module services/deposit
  */
 
@@ -98,7 +99,6 @@ class DepositService {
         }
 
         const now = new Date();
-        const newBalance = account.balance + input.amount;
 
         const transaction = await this.transactionRepo.create(
           {
@@ -117,6 +117,21 @@ class DepositService {
           session
         );
 
+        // Use findOneAndUpdate to get authoritative post-update balance
+        const updatedAccount = await this.accountRepo.updateBalance(
+          account._id,
+          input.amount,
+          session
+        );
+
+        if (!updatedAccount) {
+          throw new ServiceError({
+            code: "DEPOSIT_FAILED",
+            message: "Failed to update account balance.",
+            statusCode: 500,
+          });
+        }
+
         await this.ledgerEntryRepo.createMany(
           [
             {
@@ -132,16 +147,10 @@ class DepositService {
               accountId: account._id,
               entryType: EntryType.CREDIT,
               amount: input.amount,
-              balanceAfter: newBalance,
+              balanceAfter: updatedAccount.balance,
               createdAt: now,
             },
           ],
-          session
-        );
-
-        await this.accountRepo.updateBalance(
-          account._id,
-          input.amount,
           session
         );
 
@@ -158,6 +167,7 @@ class DepositService {
         await this.idempotencyRepo.create(
           {
             key: idempotencyKey,
+            userId: new ObjectId(userId),
             method: "POST",
             path: "/api/v1/deposits",
             statusCode: 201,

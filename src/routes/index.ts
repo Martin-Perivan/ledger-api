@@ -13,7 +13,12 @@ import { createAuthRoutes } from "./auth.routes.js";
 import { createAccountRoutes } from "./account.routes.js";
 import { createDepositRoutes } from "./deposit.routes.js";
 import { createTransferRoutes } from "./transfer.routes.js";
-import { authLimiter, transferLimiter } from "../middleware/rate-limit.middleware.js";
+import {
+  authLimiter,
+  transferLimiter,
+  depositLimiter,
+  accountCreationLimiter,
+} from "../middleware/rate-limit.middleware.js";
 
 interface RouteControllers {
   authController: AuthController;
@@ -27,9 +32,13 @@ function createApiRoutes(controllers: RouteControllers): Router {
   const router = Router();
 
   router.use("/auth", authLimiter, createAuthRoutes(controllers.authController));
-  router.use("/accounts", createAccountRoutes(controllers.accountController));
+  router.use(
+    "/accounts",
+    createAccountRoutes(controllers.accountController, accountCreationLimiter)
+  );
   router.use(
     "/deposits",
+    depositLimiter,
     createDepositRoutes(
       controllers.depositController,
       controllers.idempotencyMiddleware

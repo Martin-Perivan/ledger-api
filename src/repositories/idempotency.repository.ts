@@ -17,12 +17,13 @@ class IdempotencyRepository {
     this.collection = db.collection<IdempotencyKeyDocument>("idempotencyKeys");
   }
 
-  async findByKey(
+  async findByKeyAndUser(
     key: string,
+    userId: ObjectId,
     session?: ClientSession
   ): Promise<IdempotencyKeyDocument | null> {
     return this.collection.findOne(
-      { key: { $eq: key } },
+      { key: { $eq: key }, userId: { $eq: userId } },
       { session }
     );
   }
@@ -30,6 +31,7 @@ class IdempotencyRepository {
   async create(
     data: {
       key: string;
+      userId: ObjectId;
       method: string;
       path: string;
       statusCode: number;
@@ -44,6 +46,7 @@ class IdempotencyRepository {
       {
         _id: new ObjectId(),
         key: data.key,
+        userId: data.userId,
         method: data.method,
         path: data.path,
         statusCode: data.statusCode,

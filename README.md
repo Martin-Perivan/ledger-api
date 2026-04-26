@@ -47,8 +47,9 @@ See [`docs/architecture.md`](docs/architecture.md) for the full system design an
 | AI Integration  | Anthropic Claude API (Sonnet)               |
 | Logging         | pino                                        |
 | Testing         | Jest + mongodb-memory-server                |
+| CI / Security   | GitHub Actions + Trivy                      |
 | Documentation   | Swagger (OpenAPI 3.0) + Postman Collection  |
-| Deployment      | Railway + MongoDB Atlas                     |
+| Deployment      | Railway (Dockerfile) + MongoDB Atlas         |
 | Package Manager | pnpm                                        |
 
 ## Quick Start
@@ -59,9 +60,9 @@ See [`docs/architecture.md`](docs/architecture.md) for the full system design an
 git clone https://github.com/Martin-Perivan/ledger-api.git
 cd ledger-api
 pnpm install
-cp .env.example .env    # Edit with your values
+cp .env.example .env
 
-# Start local MongoDB replica set
+# Start local authenticated MongoDB replica set
 docker compose up -d
 
 # Seed demo users and accounts
@@ -72,31 +73,40 @@ pnpm run dev
 ```
 
 The repository includes a `.node-version` file for Node.js 24 tooling alignment.
+Local development uses a single-node authenticated MongoDB replica set in Docker with the `ledger` database and an `admin` application user. Production and staging use MongoDB Atlas.
 See [`docs/development.md`](docs/development.md) for the full setup guide.
+
+For Railway deployments, the API ships as a Docker image with:
+- Chainguard Node 24 base images
+- Non-root runtime user
+- Container health check against `GET /health`
+- Explicit CORS origin whitelist via `CORS_ORIGIN`
 
 ## Common Commands
 
-| Command | Description |
-| ------- | ----------- |
-| `pnpm run dev` | Start the development server with `tsx watch` |
-| `pnpm run lint` | Run ESLint across `src/` and `tests/` |
-| `pnpm run test` | Run the Jest test suite |
-| `pnpm run build` | Compile TypeScript to `dist/` |
-| `pnpm run seed` | Seed demo users and wallet accounts |
-| `pnpm run swagger` | Generate the Swagger/OpenAPI output |
+| Command            | Description |
+| ------------------ | --------------------------------------------- |
+| `pnpm run dev`     | Start the development server with `tsx watch` |
+| `pnpm run lint`    | Run ESLint across `src/` and `tests/`         |
+| `pnpm run test`    | Run the Jest test suite                       |
+| `pnpm run build`   | Compile TypeScript to `dist/`                 |
+| `pnpm run seed`    | Seed demo users and wallet accounts           |
+| `pnpm run swagger` | Load the Swagger/OpenAPI configuration module  |
 
 ## API Endpoints
 
-| Method | Path                            | Description                | Auth |
-| ------ | ------------------------------- | -------------------------- | ---- |
-| POST   | `/api/v1/auth/register`         | Create user account        | No   |
-| POST   | `/api/v1/auth/login`            | Authenticate, get JWT      | No   |
-| POST   | `/api/v1/accounts`              | Create digital wallet      | Yes  |
-| GET    | `/api/v1/accounts`              | List user's accounts       | Yes  |
-| GET    | `/api/v1/accounts/:id`          | Account details + balance  | Yes  |
-| GET    | `/api/v1/accounts/:id/history`  | Paginated ledger entries   | Yes  |
-| POST   | `/api/v1/deposits`              | Deposit funds (idempotent) | Yes  |
-| POST   | `/api/v1/transfers`             | P2P transfer + fraud check | Yes  |
+| Method | Path                                   | Description                | Auth |
+| ------ | -------------------------------------- | -------------------------- | ---- |
+| POST   | `/api/v1/auth/register`                | Create user account        | No   |
+| POST   | `/api/v1/auth/login`                   | Authenticate, get JWT      | No   |
+| POST   | `/api/v1/accounts`                     | Create digital wallet      | Yes  |
+| GET    | `/api/v1/accounts`                     | List user's accounts       | Yes  |
+| GET    | `/api/v1/accounts/:accountId`          | Account details + balance  | Yes  |
+| GET    | `/api/v1/accounts/:accountId/history`  | Paginated ledger entries   | Yes  |
+| POST   | `/api/v1/deposits`                     | Deposit funds (idempotent) | Yes  |
+| POST   | `/api/v1/transfers`                    | P2P transfer + fraud check | Yes  |
+
+Operational endpoint: `GET /health`
 
 Full contract with request/response examples: [`docs/api-reference.md`](docs/api-reference.md)
 
@@ -109,14 +119,16 @@ Import the [Postman Collection](postman_collection.json) for ready-to-use reques
 | Input validation           | Zod schemas on every endpoint           |
 | Password storage           | bcrypt (12 salt rounds)                 |
 | Authentication             | JWT with 1-hour expiry                  |
-| HTTP hardening             | Helmet.js (CSP, HSTS, X-Frame-Options) |
+| HTTP hardening             | Helmet.js (CSP, HSTS, X-Frame-Options)  |
 | Rate limiting              | Per-IP and per-user limits              |
-| CORS                       | Strict origin whitelist                 |
+| CORS                       | Explicit origin whitelist from env      |
 | Idempotency                | UUID-based deduplication on writes      |
 | Transactional integrity    | MongoDB multi-document transactions     |
 | Fraud detection            | AI risk scoring on every transfer       |
 | Audit trail                | Immutable append-only log               |
 | NoSQL injection prevention | Parameterized queries with `$eq`        |
+| Container runtime          | Chainguard Node 24 + non-root user      |
+| Supply chain checks        | `--frozen-lockfile` + Trivy CI scanning  |
 
 Full security audit: [`docs/audit-report.md`](docs/audit-report.md)
 
@@ -145,7 +157,7 @@ src/
 ├── config/         — Database, environment, and Swagger setup
 ├── controllers/    — HTTP request and response orchestration
 ├── domain/         — Entities, enums, value objects, and constants
-├── middleware/     — Auth, validation, idempotency, rate limit, and headers
+├── middleware/     — Gateway, auth, validation, idempotency, rate limit, and headers
 ├── repositories/   — MongoDB data access layer
 ├── routes/         — Express route definitions
 ├── schemas/        — Zod validation schemas
@@ -167,16 +179,16 @@ src/
 | [`docs/development.md`](docs/development.md)          | Local setup and scripts           |
 | [`docs/roadmap.md`](docs/roadmap.md)                  | Planned improvements              |
 | [`docs/decisions/`](docs/decisions/)                  | Architecture Decision Records     |
-| [`docs/walkthrough.md`](docs/walkthrough.md)          | Hands-on testing guide            |
+| [`docs/walkthrough.md`](docs/walkthrough.md)          | Hands-on walkthrough and testing  |
 
 ## Repository Guidance
 
-| Path | Description |
-| ---- | ----------- |
-| [`AGENTS.md`](AGENTS.md) | Agent execution contract and repository loading order |
-| [`.agents/rules/ledger-api/`](.agents/rules/ledger-api/) | Detailed project rules for naming, errors, security, database, and responses |
+| Path                                                                   | Description              |
+| ---------------------------------------------------------------------- | ------------------------ |
+| [`AGENTS.md`](AGENTS.md)                                               | Agent execution contract and repository loading order |
+| [`.agents/rules/ledger-api/`](.agents/rules/ledger-api/)               | Detailed project rules for naming, errors, security, database, and responses |
 | [`.agents/skills/backend-engineer/`](.agents/skills/backend-engineer/) | Canonical backend skill materials for architecture, domain logic, and workflows |
-| [`.trae/skills/skill-md/SKILL.md`](.trae/skills/skill-md/SKILL.md) | Trae bridge that routes to the canonical backend skill |
+| [`.trae/skills/skill-md/SKILL.md`](.trae/skills/skill-md/SKILL.md)     | Trae bridge that routes to the canonical backend skill |
 
 `README.md` stays user-facing, while `AGENTS.md` and `.agents/` define the repository guidance used by coding agents and IDE integrations.
 

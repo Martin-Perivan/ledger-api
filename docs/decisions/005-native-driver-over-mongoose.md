@@ -38,7 +38,7 @@ Mongoose requires dual schema definitions (Mongoose schema + TypeScript interfac
 Input validation is handled by Zod schemas in the middleware layer (before data reaches the repository). Adding Mongoose schema validation at the data layer would be redundant — validating the same data twice with two different libraries.
 
 ### 5. Performance
-Mongoose instantiates full model objects for every document returned from a query. For paginated endpoints like `/accounts/:id/history` that return 20-100 ledger entries, this overhead is unnecessary. The native driver returns plain JavaScript objects directly.
+For paginated endpoints like `/accounts/:accountId/history` that return 20-100 ledger entries, additional ODM hydration is unnecessary overhead. The native MongoDB driver returns plain typed objects rather than hydrated model instances.
 
 ### 6. Transparency
 In a financial system, it is critical to know exactly what queries are executed against the database. The native driver provides this transparency — what you write is what runs. There are no hidden hooks, no automatic population, no implicit saves.

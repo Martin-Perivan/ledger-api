@@ -33,7 +33,8 @@
 ## Phase 4 — Observability & Scale
 
 - [ ] Structured logging with correlation IDs (OpenTelemetry)
-- [ ] Health check endpoint (`/health` with DB status)
+- [x] Basic health check endpoint (`/health`)
+- [ ] Readiness endpoint with dependency status (MongoDB / external services)
 - [ ] Prometheus metrics endpoint
 - [ ] MongoDB connection pooling optimization
 - [ ] Horizontal scaling documentation (stateless API)

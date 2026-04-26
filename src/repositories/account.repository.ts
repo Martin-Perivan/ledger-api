@@ -4,7 +4,7 @@
  * @module repositories/account
  */
 
-import { Collection, Db, ObjectId, ClientSession } from "mongodb";
+import { Collection, Db, ObjectId, ClientSession, ReturnDocument } from "mongodb";
 
 import { type AccountDocument } from "../domain/entities/account.entity.js";
 
@@ -55,13 +55,44 @@ class AccountRepository {
     id: ObjectId,
     balanceDelta: number,
     session?: ClientSession
-  ): Promise<void> {
-    await this.collection.updateOne(
+  ): Promise<AccountDocument | null> {
+    return this.collection.findOneAndUpdate(
       { _id: id },
       {
         $inc: { balance: balanceDelta },
         $set: { updatedAt: new Date() },
       },
+      { session, returnDocument: ReturnDocument.AFTER }
+    );
+  }
+
+  async updateBalanceGuarded(
+    id: ObjectId,
+    balanceDelta: number,
+    session?: ClientSession
+  ): Promise<AccountDocument | null> {
+    const filter: Record<string, unknown> = { _id: id };
+
+    if (balanceDelta < 0) {
+      filter["balance"] = { $gte: Math.abs(balanceDelta) };
+    }
+
+    return this.collection.findOneAndUpdate(
+      filter,
+      {
+        $inc: { balance: balanceDelta },
+        $set: { updatedAt: new Date() },
+      },
+      { session, returnDocument: ReturnDocument.AFTER }
+    );
+  }
+
+  async countByUserId(
+    userId: ObjectId,
+    session?: ClientSession
+  ): Promise<number> {
+    return this.collection.countDocuments(
+      { userId: { $eq: userId } },
       { session }
     );
   }

@@ -1,6 +1,14 @@
 /**
  * Transfer service orchestrating P2P transfers with double-entry ledger,
  * AI-powered fraud detection, and transactional integrity.
+ *
+ * Concurrency model:
+ *   1. Pre-read accounts outside transaction for early validation + risk context.
+ *   2. Risk assessment outside transaction (external API call, up to 3 s).
+ *   3. Inside the transaction: re-read accounts, re-validate, use guarded
+ *      balance update ($inc with balance >= guard) to prevent double-spend,
+ *      re-check velocity to catch parallel request flooding.
+ *
  * @module services/transfer
  */
 
@@ -29,6 +37,8 @@ import {
   failure,
 } from "../utils/result.js";
 import { logger } from "../utils/logger.js";
+
+const MAX_TRANSFERS_PER_HOUR = 30;
 
 interface TransferOutput {
   transactionId: string;
@@ -75,6 +85,7 @@ class TransferService {
     const fromAccountId = new ObjectId(input.fromAccountId);
     const toAccountId = new ObjectId(input.toAccountId);
 
+    // --- Pre-read for early validation and risk context (outside transaction) ---
     const [fromAccount, toAccount] = await Promise.all([
       this.accountRepo.findById(fromAccountId),
       this.accountRepo.findById(toAccountId),
@@ -114,8 +125,8 @@ class TransferService {
 
     if (toAccount.status !== AccountStatus.ACTIVE) {
       return failure({
-        code: "ACCOUNT_NOT_ACTIVE",
-        message: "Recipient account is not active.",
+        code: "TRANSFER_FAILED",
+        message: "Transfer could not be completed.",
         statusCode: 422,
       });
     }
@@ -144,6 +155,7 @@ class TransferService {
       });
     }
 
+    // --- Risk assessment (outside transaction — external API call) ---
     const riskContext = await this.riskService.gatherContext(
       fromAccountId,
       toAccountId,
@@ -177,13 +189,12 @@ class TransferService {
       );
     }
 
+    // --- Execute inside transaction with full re-validation ---
     return this.executeTransfer(
       userId,
       input,
       fromAccountId,
       toAccountId,
-      fromAccount.balance,
-      toAccount.balance,
       idempotencyKey,
       assessment,
       ip,
@@ -262,8 +273,6 @@ class TransferService {
     input: CreateTransferInput,
     fromAccountId: ObjectId,
     toAccountId: ObjectId,
-    senderBalance: number,
-    recipientBalance: number,
     idempotencyKey: string,
     assessment: RiskAssessment,
     ip: string,
@@ -275,9 +284,59 @@ class TransferService {
       let transferOutput: TransferOutput | undefined;
 
       await session.withTransaction(async () => {
+        // Re-read accounts inside transaction for authoritative state
+        const [senderAccount, recipientAccount] = await Promise.all([
+          this.accountRepo.findById(fromAccountId, session),
+          this.accountRepo.findById(toAccountId, session),
+        ]);
+
+        if (
+          !senderAccount ||
+          !recipientAccount ||
+          senderAccount.status !== AccountStatus.ACTIVE ||
+          recipientAccount.status !== AccountStatus.ACTIVE
+        ) {
+          throw new TransactionAbortError("ACCOUNT_INVALID");
+        }
+
+        if (senderAccount.balance < input.amount) {
+          throw new TransactionAbortError("INSUFFICIENT_FUNDS");
+        }
+
+        // Re-check velocity inside transaction to catch parallel flooding
+        const recentTransfers = await this.transactionRepo.countRecentByAccount(
+          fromAccountId,
+          new Date(Date.now() - 3_600_000),
+          session
+        );
+
+        if (recentTransfers >= MAX_TRANSFERS_PER_HOUR) {
+          throw new TransactionAbortError("VELOCITY_EXCEEDED");
+        }
+
         const now = new Date();
-        const newSenderBalance = senderBalance - input.amount;
-        const newRecipientBalance = recipientBalance + input.amount;
+
+        // Guarded balance debit — atomically checks balance >= amount
+        const updatedSender = await this.accountRepo.updateBalanceGuarded(
+          fromAccountId,
+          -input.amount,
+          session
+        );
+
+        if (!updatedSender) {
+          throw new TransactionAbortError("INSUFFICIENT_FUNDS");
+        }
+
+        // Credit recipient — get authoritative post-update balance
+        const updatedRecipient = await this.accountRepo.updateBalance(
+          toAccountId,
+          input.amount,
+          session
+        );
+
+        if (!updatedRecipient) {
+          throw new TransactionAbortError("ACCOUNT_INVALID");
+        }
 
         const transaction = await this.transactionRepo.create(
           {
@@ -303,7 +362,7 @@ class TransferService {
               accountId: fromAccountId,
               entryType: EntryType.DEBIT,
               amount: input.amount,
-              balanceAfter: newSenderBalance,
+              balanceAfter: updatedSender.balance,
               createdAt: now,
             },
             {
@@ -311,17 +370,12 @@ class TransferService {
               accountId: toAccountId,
               entryType: EntryType.CREDIT,
               amount: input.amount,
-              balanceAfter: newRecipientBalance,
+              balanceAfter: updatedRecipient.balance,
               createdAt: now,
             },
           ],
           session
         );
-
-        await Promise.all([
-          this.accountRepo.updateBalance(fromAccountId, -input.amount, session),
-          this.accountRepo.updateBalance(toAccountId, input.amount, session),
-        ]);
 
         transferOutput = {
           transactionId: transaction._id.toHexString(),
@@ -342,6 +396,7 @@ class TransferService {
         await this.idempotencyRepo.create(
           {
             key: idempotencyKey,
+            userId: new ObjectId(userId),
             method: "POST",
             path: "/api/v1/transfers",
             statusCode: 201,
@@ -355,7 +410,7 @@ class TransferService {
 
         const auditAction =
           assessment.riskLevel === "MEDIUM"
-            ? AuditAction.TRANSFER
+            ? AuditAction.TRANSFER_FLAGGED
             : AuditAction.TRANSFER;
 
         await this.auditLogRepo.create(
@@ -393,6 +448,29 @@ class TransferService {
 
       return success(transferOutput!);
     } catch (error) {
+      if (error instanceof TransactionAbortError) {
+        switch (error.reason) {
+          case "INSUFFICIENT_FUNDS":
+            return failure({
+              code: "INSUFFICIENT_FUNDS",
+              message: "Account does not have enough balance for this transfer.",
+              statusCode: 422,
+            });
+          case "VELOCITY_EXCEEDED":
+            return failure({
+              code: "VELOCITY_EXCEEDED",
+              message: "Too many transfers in a short period. Please try again later.",
+              statusCode: 429,
+            });
+          default:
+            return failure({
+              code: "TRANSFER_FAILED",
+              message: "Transfer could not be completed.",
+              statusCode: 422,
+            });
+        }
+      }
+
       logger.error({ err: error }, "Transfer failed");
       return failure({
         code: "TRANSFER_FAILED",
@@ -402,6 +480,12 @@ class TransferService {
     } finally {
       await session.endSession();
     }
+  }
+}
+
+class TransactionAbortError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
   }
 }
 

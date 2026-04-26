@@ -12,6 +12,7 @@ import { type AccountRepository } from "../repositories/account.repository.js";
 import { type LedgerEntryRepository } from "../repositories/ledger-entry.repository.js";
 import { type CreateAccountInput } from "../schemas/account.schema.js";
 import { AccountStatus } from "../domain/enums/account-status.enum.js";
+import { env } from "../config/environment.js";
 import {
   type Result,
   type AppError,
@@ -19,6 +20,8 @@ import {
   failure,
 } from "../utils/result.js";
 import { logger } from "../utils/logger.js";
+
+const MAX_ACCOUNT_NUMBER_RETRIES = 3;
 
 interface AccountOutput {
   accountId: string;
@@ -62,30 +65,67 @@ class AccountService {
     input: CreateAccountInput
   ): Promise<Result<AccountOutput, AppError>> {
     try {
-      const accountNumber = generateAccountNumber();
-      const now = new Date();
+      const userObjectId = new ObjectId(userId);
 
-      const account = await this.accountRepo.create({
-        userId: new ObjectId(userId),
-        accountNumber,
-        balance: 0,
-        currency: input.currency,
-        status: AccountStatus.ACTIVE,
-        createdAt: now,
-        updatedAt: now,
-      });
+      // Enforce per-user account limit
+      const accountCount = await this.accountRepo.countByUserId(userObjectId);
+      if (accountCount >= env.MAX_ACCOUNTS_PER_USER) {
+        return failure({
+          code: "ACCOUNT_LIMIT_REACHED",
+          message: `Maximum of ${env.MAX_ACCOUNTS_PER_USER} accounts per user.`,
+          statusCode: 422,
+        });
+      }
 
-      logger.info(
-        { accountId: account._id.toHexString(), userId },
-        "Account created"
-      );
+      // Retry on account number collision (unique index)
+      for (let attempt = 0; attempt < MAX_ACCOUNT_NUMBER_RETRIES; attempt++) {
+        try {
+          const accountNumber = generateAccountNumber();
+          const now = new Date();
 
-      return success({
-        accountId: account._id.toHexString(),
-        accountNumber: account.accountNumber,
-        balance: account.balance,
-        currency: account.currency,
-        status: account.status,
+          const account = await this.accountRepo.create({
+            userId: userObjectId,
+            accountNumber,
+            balance: 0,
+            currency: input.currency,
+            status: AccountStatus.ACTIVE,
+            createdAt: now,
+            updatedAt: now,
+          });
+
+          logger.info(
+            { accountId: account._id.toHexString(), userId },
+            "Account created"
+          );
+
+          return success({
+            accountId: account._id.toHexString(),
+            accountNumber: account.accountNumber,
+            balance: account.balance,
+            currency: account.currency,
+            status: account.status,
+          });
+        } catch (error) {
+          const isDuplicate =
+            error instanceof Error &&
+            "code" in error &&
+            (error as { code: number }).code === 11000;
+
+          if (!isDuplicate || attempt === MAX_ACCOUNT_NUMBER_RETRIES - 1) {
+            throw error;
+          }
+
+          logger.warn(
+            { attempt: attempt + 1 },
+            "Account number collision, retrying"
+          );
+        }
+      }
+
+      return failure({
+        code: "ACCOUNT_CREATION_FAILED",
+        message: "Failed to generate a unique account number.",
+        statusCode: 500,
       });
     } catch (error) {
       logger.error({ err: error }, "Account creation failed");

@@ -1,10 +1,12 @@
 /**
  * Idempotency middleware for state-changing financial operations.
  * Requires Idempotency-Key header (UUID v4). Returns cached response on duplicate.
+ * Keys are scoped to the authenticated user to prevent cross-user response leakage.
  * @module middleware/idempotency
  */
 
 import { Request, Response, NextFunction } from "express";
+import { ObjectId } from "mongodb";
 
 import { type IdempotencyRepository } from "../repositories/idempotency.repository.js";
 import { logger } from "../utils/logger.js";
@@ -43,7 +45,11 @@ function createIdempotencyMiddleware(idempotencyRepo: IdempotencyRepository) {
     }
 
     try {
-      const existing = await idempotencyRepo.findByKey(idempotencyKey);
+      const userId = new ObjectId(req.user!.userId);
+      const existing = await idempotencyRepo.findByKeyAndUser(
+        idempotencyKey,
+        userId
+      );
 
       if (existing) {
         logger.info(

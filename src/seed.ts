@@ -1,9 +1,15 @@
+import { env } from "./config/environment.js";
 import { connectDatabase, disconnectDatabase } from "./config/database.js";
 import { AccountStatus } from "./domain/enums/account-status.enum.js";
 import { AccountRepository } from "./repositories/account.repository.js";
 import { UserRepository } from "./repositories/user.repository.js";
 import { hashPassword } from "./utils/hash.js";
 import { logger } from "./utils/logger.js";
+
+if (env.NODE_ENV === "production") {
+  logger.fatal("Seed script must not run in production");
+  process.exit(1);
+}
 
 interface SeedUserDefinition {
   email: string;

@@ -1,8 +1,27 @@
 # API Reference
 
-**Base URL**: `https://<railway-domain>/api/v1`
+**Base API URL**: `https://<railway-domain>/api/v1`
+
+**Operational Endpoint**: `https://<railway-domain>/health`
+
+**Interactive Docs**: `https://<railway-domain>/api-docs` for the 8 business endpoints. `GET /health` remains outside Swagger as an operational probe.
 
 All endpoints return JSON. All request bodies are validated with Zod. Amounts are always in **integer cents** (e.g., `10000` = $100.00 MXN). Deposit amounts must be a positive integer (min 1 cent, max 999,999,999 cents). Transfer amounts have a minimum of 100 cents ($1.00) and a maximum of 999,999,999 cents.
+
+## Operations
+
+### GET `/health`
+
+Container and platform health probe.
+
+**Response `200`**:
+```json
+{
+  "status": "ok"
+}
+```
+
+---
 
 ## Authentication
 
@@ -205,7 +224,7 @@ Deposit funds into an account (simulated external funding).
 }
 ```
 
-**Errors**: `400` validation, `404` account not found, `409` duplicate idempotency key.
+**Errors**: `400` validation or missing/invalid `Idempotency-Key`, `403` not your account, `404` account not found, `409` duplicate idempotency key, `422` inactive account or currency mismatch.
 
 ---
 
@@ -261,7 +280,7 @@ Execute a P2P transfer between two accounts. Triggers AI fraud detection.
 }
 ```
 
-**Errors**: `400` validation, `404` account not found, `403` not your account / blocked, `409` duplicate idempotency key, `422` insufficient funds.
+**Errors**: `400` validation or missing/invalid `Idempotency-Key`, `403` not your account or blocked by fraud detection, `404` account not found, `409` duplicate idempotency key, `422` insufficient funds, self-transfer, inactive account, or currency mismatch.
 
 ---
 

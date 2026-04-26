@@ -1,22 +1,18 @@
 /**
  * Express application factory with manual dependency injection.
- * Wires repositories → services → controllers → routes.
+ * Wires repositories -> services -> controllers -> routes.
  * @module app
  */
 
 import express, { type Express } from "express";
-import helmet from "helmet";
-import cors from "cors";
 import { Db, MongoClient } from "mongodb";
 
-import { env } from "./config/environment.js";
-import { requestIdMiddleware } from "./middleware/request-id.middleware.js";
-import { responseHeadersMiddleware } from "./middleware/response-headers.middleware.js";
-import { globalLimiter } from "./middleware/rate-limit.middleware.js";
+import { applyAppGatewayMiddleware } from "./middleware/app-gateway.middleware.js";
 import { errorHandler } from "./middleware/error-handler.middleware.js";
 import { createIdempotencyMiddleware } from "./middleware/idempotency.middleware.js";
 import { createApiRoutes } from "./routes/index.js";
 import { setupSwagger } from "./config/swagger.js";
+import { env } from "./config/environment.js";
 
 import { UserRepository } from "./repositories/user.repository.js";
 import { AccountRepository } from "./repositories/account.repository.js";
@@ -39,27 +35,7 @@ import { TransferController } from "./controllers/transfer.controller.js";
 function createApp(db: Db, client: MongoClient): Express {
   const app = express();
 
-  // Railway / PaaS reverse proxy – trust the immediate load balancer
-  // so req.ip reflects the real client address (needed by rate limiters).
-  app.set("trust proxy", 1);
-
-  // --- Gateway middleware ---
-  app.use(helmet());
-  app.use(
-    cors({
-      origin: env.CORS_ORIGIN,
-      methods: ["GET", "POST"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "Idempotency-Key",
-      ],
-    })
-  );
-  app.use(express.json({ limit: "10kb" }));
-  app.use(requestIdMiddleware);
-  app.use(responseHeadersMiddleware);
-  app.use(globalLimiter);
+  applyAppGatewayMiddleware(app);
 
   // --- Repositories ---
   const userRepo = new UserRepository(db);
@@ -112,12 +88,19 @@ function createApp(db: Db, client: MongoClient): Express {
     })
   );
 
-  // --- Swagger ---
-  setupSwagger(app);
+  // --- Swagger (disabled in production) ---
+  if (env.NODE_ENV !== "production") {
+    setupSwagger(app);
+  }
 
-  // --- Health check ---
-  app.get("/health", (_req, res) => {
-    res.status(200).json({ status: "ok" });
+  // --- Health check (verifies database connectivity) ---
+  app.get("/health", async (_req, res) => {
+    try {
+      await client.db("admin").command({ ping: 1 });
+      res.status(200).json({ status: "ok" });
+    } catch {
+      res.status(503).json({ status: "degraded", reason: "database unreachable" });
+    }
   });
 
   // --- Error handler (must be last) ---

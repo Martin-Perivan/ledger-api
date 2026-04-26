@@ -40,10 +40,12 @@ As a fintech ledger handling account balances and transfers, the primary threats
 | Measure                  | Implementation                                |
 | ------------------------ | --------------------------------------------- |
 | HTTP headers             | Helmet.js (CSP, HSTS, X-Frame-Options, etc.) |
-| CORS                     | Strict origin whitelist, no wildcards         |
+| CORS                     | Explicit env-driven origin whitelist, no wildcards |
 | Rate limiting            | express-rate-limit (see API Reference)        |
 | Request size limit       | 10KB JSON body max (`express.json` limit)     |
 | Request logging          | pino structured logs (no sensitive data)      |
+
+> Requests without an `Origin` header remain valid so Postman, curl, and server-to-server clients are not blocked by the browser-specific CORS policy.
 
 ### 4. Idempotency
 
@@ -86,7 +88,18 @@ As a fintech ledger handling account balances and transfers, the primary threats
 | Environment variables       | All secrets via `.env`, never committed        |
 | `.gitignore`                | Covers `.env`, `node_modules`, `dist/`         |
 
-### 8. Audit Trail
+### 8. Runtime and Supply Chain Hardening
+
+| Measure                     | Implementation                                |
+| --------------------------- | --------------------------------------------- |
+| Container base image        | Chainguard Node 24 images for build and runtime |
+| Runtime user                | Non-root `node` user inside the container     |
+| Container health check      | Docker `HEALTHCHECK` probes `GET /health`     |
+| Reproducible installs       | `pnpm install --frozen-lockfile`              |
+| CI validation               | GitHub Actions runs lint, tests, and build    |
+| Vulnerability scanning      | Trivy scans filesystem and built image        |
+
+### 9. Audit Trail
 
 | Measure                     | Implementation                                |
 | --------------------------- | --------------------------------------------- |
@@ -94,6 +107,13 @@ As a fintech ledger handling account balances and transfers, the primary threats
 | Logged events               | REGISTER, LOGIN, TRANSFER, DEPOSIT, BLOCKED   |
 | Metadata captured           | userId, IP, userAgent, timestamp, risk score  |
 | No deletion                 | Audit logs are append-only                    |
+
+### 10. Deployment Network Controls
+
+| Measure                     | Implementation                                |
+| --------------------------- | --------------------------------------------- |
+| Atlas access policy         | Production should restrict MongoDB Atlas by explicit outbound IP allowlist |
+| Temporary diagnostics       | `0.0.0.0/0` may confirm an allowlist issue during testing but must not remain in production |
 
 ## OWASP API Security Top 10 Coverage
 

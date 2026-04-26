@@ -5,6 +5,7 @@ node_modules/
 dist/
 coverage/
 .nyc_output/
+.jest-cache/
 *.tsbuildinfo
 
 # Environment files

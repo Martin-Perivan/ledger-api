@@ -17,5 +17,3 @@ process.env["RISK_ASSESSMENT_TIMEOUT_MS"] = "3000";
 process.env["RATE_LIMIT_WINDOW_MS"] = "60000";
 process.env["RATE_LIMIT_MAX_REQUESTS"] = "1000";
 process.env["CORS_ORIGIN"] = "http://localhost:3001";
-
-export {};

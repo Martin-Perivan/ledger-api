@@ -16,8 +16,8 @@ An AI-powered fraud detection layer (Claude API) evaluates each transfer in real
 ┌─────────────────────────────────────────────────────────────┐
 │                     API GATEWAY LAYER                         │
 │  ┌─────────┐ ┌──────────┐ ┌────────┐ ┌──────────────────┐   │
-│  │ Helmet  │ │ CORS     │ │ Rate   │ │ Request Logger   │   │
-│  │         │ │ (strict) │ │ Limiter│ │                  │   │
+│  │ Helmet  │ │ CORS     │ │ Rate   │ │ Request IDs +    │   │
+│  │         │ │ (strict) │ │ Limiter│ │ Response Headers │   │
 │  └─────────┘ └──────────┘ └────────┘ └──────────────────┘   │
 └──────────────────────┬──────────────────────────────────────┘
                        ▼
@@ -102,6 +102,9 @@ ledger-api/
 ├── .trae/
 │   └── skills/skill-md/
 │       └── SKILL.md
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── docs/
 │   ├── decisions/
 │   │   ├── 001-double-entry-ledger.md
@@ -159,6 +162,7 @@ ledger-api/
 │   │   ├── transfer.controller.ts
 │   │   └── deposit.controller.ts
 │   ├── middleware/
+│   │   ├── app-gateway.middleware.ts
 │   │   ├── auth.middleware.ts
 │   │   ├── validate.middleware.ts
 │   │   ├── idempotency.middleware.ts
@@ -195,7 +199,8 @@ ledger-api/
 │   │   └── risk-assessment.service.test.ts
 │   └── helpers/
 │       ├── test-db.ts                  — In-memory MongoDB for tests
-│       └── setup-env.ts               — Test environment variables
+│       ├── setup-env.cjs              — Jest early env bootstrap
+│       └── setup-env.ts               — TypeScript test env helper
 ├── .dockerignore
 ├── .env.example
 ├── .gitignore
@@ -236,7 +241,7 @@ ledger-api/
 - The `TransferService` orchestrates: idempotency check → risk assessment → ledger write (within a MongoDB session/transaction).
 
 ### Repositories (`src/repositories/`)
-- Direct MongoDB driver interaction (`mongodb` native driver, no Mongoose).
+- Direct MongoDB driver interaction through the official `mongodb` package.
 - Each repository maps to one collection.
 - Accept a `ClientSession` parameter for transactional operations.
 - Return typed domain entities.
@@ -246,22 +251,33 @@ ledger-api/
 - No framework imports. No database imports.
 - The `Money` value object uses integer cents (never floating point) to avoid precision issues.
 
+### Gateway Middleware (`src/middleware/app-gateway.middleware.ts`)
+- Centralizes proxy trust, Helmet, CORS, JSON body limit, request IDs, response headers, and the global rate limiter.
+- Reads `CORS_ORIGIN` as an explicit comma-separated whitelist and allows requests without an `Origin` header for Postman and server-to-server clients.
+- Keeps `app.ts` focused on dependency wiring, routes, Swagger, health, and the terminal error handler.
+
+## Runtime and Delivery
+
+- The container image uses multi-stage builds with Chainguard Node 24 images for both build and runtime stages.
+- The runtime container executes as the non-root `node` user and exposes a Docker `HEALTHCHECK` against `GET /health`.
+- CI runs `pnpm run lint`, `pnpm run test -- --runInBand`, and `pnpm run build`, then scans both the repository and the built image with Trivy for `HIGH` and `CRITICAL` findings.
+
 ## Double-Entry Ledger Data Flow
 
 ```
 Transfer $100 from Account A → Account B
 
-1. Client sends POST /api/v1/transfers
+1. Client sends `POST /api/v1/transfers`
+   with header `Idempotency-Key: <uuid-v4>`
    {
      "fromAccountId": "...",
      "toAccountId": "...",
      "amount": 10000,        ← cents (integer)
      "currency": "MXN",
-     "description": "P2P transfer",
-     "idempotencyKey": "uuid-v4"
+     "description": "P2P transfer"
    }
 
-2. Idempotency middleware checks if key exists → if yes, return cached response.
+2. Idempotency middleware checks the header key → if it already exists, return the cached response.
 
 3. TransferService receives the request:
    a. Validate both accounts exist and are ACTIVE
